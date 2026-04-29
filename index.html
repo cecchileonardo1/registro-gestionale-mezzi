@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GESTIONALE FLOTTA V29</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { 
+            --poste-blue: #004481; --poste-yellow: #ffcc00; --bg-light: #f4f7f9; 
+            --danger: #dc3545; --warning: #ffc107;
+            --color-mecc: #b91c1c; --bg-mecc: #fef2f2;
+            --color-carr: #0891b2; --bg-carr: #ecfeff;
+            --color-gomme: #1e293b; --bg-gomme: #f1f5f9;
+            --color-varie: #6366f1; --bg-varie: #eef2ff;
+            --color-revisione: #eab308; --bg-revisione: #fefce8; 
+            --color-tagliando: #1d4ed8; --bg-tagliando: #eff6ff; 
+        }
+        
+        body { font-family: 'Roboto', sans-serif; background-color: var(--bg-light); margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        header { background: var(--poste-blue); color: white; padding: 25px 20px; text-align: center; border-bottom: 5px solid var(--poste-yellow); }
+        header h1 { margin: 0; font-family: 'Montserrat'; font-size: 1.5rem; text-transform: uppercase; }
+        header p { margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.9; }
+
+        .container { max-width: 800px; margin: auto; padding: 15px; flex: 1; width: 100%; box-sizing: border-box; padding-bottom: 120px; }
+        .search-box { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--poste-blue); margin-bottom: 15px; font-size: 1rem; box-sizing: border-box; }
+
+        .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .input-group { display: flex; flex-direction: column; width: 100%; margin-bottom: 10px; }
+        label { font-size: 0.8rem; font-weight: bold; color: var(--poste-blue); margin-bottom: 5px; }
+        
+        input, select { width: 100%; height: 42px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 14px; background: white; }
+        input[type="date"] { max-width: 100%; -webkit-appearance: none; }
+
+        .btn-save { background: var(--poste-yellow); color: var(--poste-blue); border: none; width: 100%; padding: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+        .btn-excel { background: #1d6f42; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-bottom: 10px; width: 100%; }
+
+        .group-header { background: #e2e8f0; padding: 10px 15px; border-radius: 8px; margin: 20px 0 10px 0; font-weight: bold; color: var(--poste-blue); text-transform: uppercase; font-size: 0.85rem; border-left: 5px solid var(--poste-blue); }
+        .vehicle-item { background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 6px solid var(--poste-blue); cursor: pointer; }
+        
+        .alert-popup { padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; cursor: pointer; border: 2px solid rgba(0,0,0,0.1); }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; color: white; margin-right: 4px; }
+        .bg-danger { background: var(--danger); }
+        .bg-warning { background: var(--warning); color: #212529; }
+
+        .update-km-box { background: #eef2ff; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #c7d2fe; display: flex; align-items: flex-end; gap: 10px; }
+
+        footer { background: #333; color: #aaa; text-align: center; padding: 15px; font-size: 0.8rem; position: fixed; bottom: 0; width: 100%; z-index: 200; }
+        #detailPage { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 100; overflow-y: auto; padding-bottom: 100px; }
+        .detail-header { background: var(--poste-blue); color: white; padding: 20px; display: flex; align-items: center; position: sticky; top: 0; z-index: 101; }
+        .btn-back { background: none; border: 2px solid white; color: white; padding: 5px 15px; border-radius: 5px; cursor: pointer; margin-right: 15px; }
+
+        .log-entry { padding: 12px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 8px solid; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .entry-revisione { border-color: var(--color-revisione); background: var(--bg-revisione); }
+        .entry-tagliando { border-color: var(--color-tagliando); background: var(--bg-tagliando); }
+        .verify-box { background: #fff3cd; border: 2px solid #ffeeba; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div id="mainPage">
+    <header><h1>Registro Gestionale Flotta Aziendale</h1><p>Monitoraggio scadenze e manutenzioni</p></header>
+    <div class="container">
+        <input type="text" id="searchInput" class="search-box" placeholder="Cerca targa, modello o centro..." onkeyup="filterFleet()">
+        <button class="btn-excel" onclick="exportToExcel()">📊 ESPORTA DATI VISIBILI IN EXCEL</button>
+
+        <div class="admin-panel" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #ddd;">
+            <h3 style="color: var(--poste-blue); margin-top:0;">Nuova Registrazione</h3>
+            <div class="input-group">
+                <label>Centro di Appartenenza *</label>
+                <select id="center">
+                    <option value="">-- SELEZIONA CENTRO --</option>
+                    <option value="Aulla">Aulla</option><option value="Borgo a Mozzano">Borgo a Mozzano</option><option value="Castel del Piano">Castel del Piano</option><option value="Castelnuovo Garfagnana">Castelnuovo Garfagnana</option><option value="Cecina">Cecina</option><option value="Donoratico">Donoratico</option><option value="Follonica">Follonica</option><option value="Grosseto Marconi RC">Grosseto Marconi RC</option><option value="Grosseto recapito Marconi">Grosseto recapito Marconi</option><option value="Isola del Giglio">Isola del Giglio</option><option value="Lido di Camaiore">Lido di Camaiore</option><option value="Livorno Porta a Terra RC">Livorno Porta a Terra RC</option><option value="Livorno Porta a Terra recapito">Livorno Porta a Terra recapito</option><option value="Lucca Piaggia RC">Lucca Piaggia RC</option><option value="Lucca Piaggia recapito">Lucca Piaggia recapito</option><option value="Manciano">Manciano</option><option value="Massa Carrara RC">Massa Carrara RC</option><option value="Massa Carrara recapito">Massa Carrara recapito</option><option value="Massa marittima">Massa marittima</option><option value="Montecatini Val di Cecina">Montecatini Val di Cecina</option><option value="Orbetello">Orbetello</option><option value="Pietrasanta">Pietrasanta</option><option value="Piombino">Piombino</option><option value="Pisa Ospedaletto RC">Pisa Ospedaletto RC</option><option value="Pisa Ospedaletto recapito">Pisa Ospedaletto recapito</option><option value="Pitigliano">Pitigliano</option><option value="Ponsacco">Ponsacco</option><option value="Pontremoli">Pontremoli</option><option value="Porto Azzurro">Porto Azzurro</option><option value="Portoferraio">Portoferraio</option><option value="Roccastrada">Roccastrada</option><option value="Rosignano Solvay">Rosignano Solvay</option><option value="Santa Croce sull’Arno">Santa Croce sull’Arno</option><option value="Santa Flora">Santa Flora</option><option value="Viareggio recapito">Viareggio recapito</option>
+                </select>
+            </div>
+            <div class="grid-inputs">
+                <div class="input-group"><label>Targa *</label><input type="text" id="plate" placeholder="AA000BB"></div>
+                <div class="input-group"><label>Modello *</label><input type="text" id="model" placeholder="Panda"></div>
+                <div class="input-group"><label>Data Imm. *</label><input type="date" id="regDate"></div>
+                <div class="input-group"><label>Km Attuali *</label><input type="number" id="kmCurrent"></div>
+            </div>
+            <div class="grid-inputs" style="background: #f9f9f9; padding: 10px; border-radius: 8px; margin-top: 5px;">
+                <div class="input-group"><label>Tagliando ogni (Km) *</label><input type="number" id="kmInterval" value="20000"></div>
+                <div class="input-group"><label>Scadenza Mesi *</label><input type="number" id="monthInterval" value="12"></div>
+            </div>
+            <button class="btn-save" onclick="addVehicle()">REGISTRA MEZZO</button>
+        </div>
+        <div id="fleetList"></div>
+    </div>
+</div>
+
+<div id="detailPage">
+    <div class="detail-header"><button class="btn-back" onclick="closeDetails()">⬅ Esci</button><h1 id="detPlate"></h1></div>
+    <div class="container">
+        <div id="popupAlerts"></div>
+        <div class="update-km-box">
+            <div class="input-group" style="margin:0; flex:1;"><label>Aggiorna Km Attuali</label><input type="number" id="quickKm"></div>
+            <button onclick="updateKm()" style="background:var(--poste-blue); color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">AGGIORNA</button>
+        </div>
+        <div id="verifyArea"></div>
+        <div id="detAlerts" style="margin-bottom:20px;"></div>
+        <h3>Nuovo Intervento</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+            <button style="background:var(--color-mecc); color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Meccanica')">🔧 MECCANICA</button>
+            <button style="background:var(--color-carr); color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Carrozzeria')">🎨 CARR.</button>
+            <button style="background:var(--color-gomme); color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Gomme')">🛞 GOMME</button>
+            <button style="background:var(--color-varie); color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Varie')">➕ VARIE</button>
+            <button style="background:var(--color-revisione); color:#854d0e; padding:12px; border:2px solid #eab308; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Revisione')">📅 REVISIONE</button>
+            <button style="background:var(--color-tagliando); color:white; padding:12px; border:none; border-radius:8px; font-weight:bold;" onclick="openMaintForm('Tagliando')">🛠️ TAGLIANDO</button>
+        </div>
+        <div id="maintForm" style="display:none; background:#fff; padding:15px; border-radius:12px; border: 2px solid #ddd; margin-bottom:20px;">
+            <h4 id="maintTitle" style="margin:0"></h4>
+            <input type="hidden" id="editLogId">
+            <div class="input-group"><label>Data</label><input type="date" id="maintDate"></div>
+            <div class="input-group"><label>Nota</label><input type="text" id="maintDesc"></div>
+            <button class="btn-save" onclick="saveLog()">SALVA</button>
+        </div>
+        <div id="logsContainer"></div>
+        <button onclick="deleteFullVehicle()" style="width:100%; padding:15px; color:red; border:1px solid red; background:none; border-radius:8px; margin-top:30px;">ELIMINA MEZZO</button>
+    </div>
+</div>
+
+<footer>creato da Leonardo Cecchi | 2026. Tutti i diritti riservati.</footer>
+
+<script>
+    // CONFIGURAZIONE FIREBASE AGGIORNATA V29
+    const firebaseConfig = {
+      apiKey: "AIzaSyAeglc0LxFwk45kqzjvOWhyfCI_FnoOLH4",
+      authDomain: "registro-gestionale-mezzi.firebaseapp.com",
+      databaseURL: "https://registro-gestionale-mezzi-default-rtdb.firebaseio.com",
+      projectId: "registro-gestionale-mezzi",
+      storageBucket: "registro-gestionale-mezzi.firebasestorage.app",
+      messagingSenderId: "516759095619",
+      appId: "1:516759095619:web:a9190d3cdb201d764d07f6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const fleetRef = db.ref('mezzi_v10_final');
+
+    let allFleetData = {};
+    let currentId = null;
+    let currentCat = "";
+
+    function getAlertData(v) {
+        const data = { alerts: [] };
+        const oggi = new Date();
+        let dRev = new Date(v.regDate);
+        dRev.setFullYear(dRev.getFullYear() + 4);
+        while (dRev < oggi) dRev.setFullYear(dRev.getFullYear() + 2);
+        const giorniRev = (dRev - oggi) / (1000*60*60*24);
+        if (giorniRev < 0) data.alerts.push({t: 'REVISIONE SCADUTA', c: 'bg-danger', cat: 'Revisione'});
+        else if (giorniRev < 30) data.alerts.push({t: 'REVISIONE IN SCADENZA', c: 'bg-warning', cat: 'Revisione'});
+        const kmMancanti = (v.kmInterval || 20000) - (v.kmCurrent - (v.kmLast || 0));
+        if (kmMancanti <= 0) data.alerts.push({t: 'TAGLIANDO SCADUTO', c: 'bg-danger', cat: 'Tagliando'});
+        else if (kmMancanti < 2000) data.alerts.push({t: 'TAGLIANDO IMMINENTE', c: 'bg-warning', cat: 'Tagliando'});
+        return data;
+    }
+
+    fleetRef.on('value', snap => {
+        allFleetData = snap.val() || {};
+        renderFleet(allFleetData);
+    });
+
+    function renderFleet(data, filter = "") {
+        const list = document.getElementById('fleetList'); list.innerHTML = '';
+        const groups = {};
+        Object.keys(data).forEach(id => {
+            const v = data[id];
+            const searchStr = `${v.plate} ${v.model} ${v.center || ''}`.toLowerCase();
+            if (filter && !searchStr.includes(filter.toLowerCase())) return;
+            const center = v.center || "NON ASSEGNATO";
+            if(!groups[center]) groups[center] = [];
+            groups[center].push({id, ...v});
+        });
+        Object.keys(groups).sort().forEach(group => {
+            const h = document.createElement('div'); h.className = 'group-header'; h.innerText = group; list.appendChild(h);
+            groups[group].forEach(v => {
+                const d = getAlertData(v);
+                const div = document.createElement('div'); div.className = 'vehicle-item';
+                div.onclick = () => showDetails(v.id);
+                div.innerHTML = `<div><h2 style="margin:0">${v.plate}</h2><small>${v.model}</small><br>${d.alerts.map(a => `<span class="badge ${a.c}">${a.t}</span>`).join('') || '<span class="badge" style="background:#28a745">OK</span>'}</div><span>➔</span>`;
+                list.appendChild(div);
+            });
+        });
+    }
+
+    function exportToExcel() {
+        const filter = document.getElementById('searchInput').value.toLowerCase();
+        let csv = "CENTRO\tTARGA\tMODELLO\tKM ATTUALI\tKM ULTIMO TAGLIANDO\tDATA IMM.\n";
+        Object.values(allFleetData).forEach(v => {
+            const searchStr = `${v.plate} ${v.model} ${v.center || ''}`.toLowerCase();
+            if (!filter || searchStr.includes(filter)) {
+                csv += `${v.center || 'N/D'}\t${v.plate}\t${v.model}\t${v.kmCurrent}\t${v.kmLast || 0}\t${v.regDate}\n`;
+            }
+        });
+        const filename = filter ? `Flotta_${filter}.xls` : "Flotta_Completa.xls";
+        const blob = new Blob([csv], {type:'application/vnd.ms-excel'});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = filename;
+        a.click();
+    }
+
+    function showDetails(id) {
+        currentId = id; const v = allFleetData[id];
+        document.getElementById('detPlate').innerText = v.plate + " (" + v.center + ")";
+        document.getElementById('quickKm').value = v.kmCurrent;
+        const d = getAlertData(v);
+        const popArea = document.getElementById('popupAlerts'); popArea.innerHTML = '';
+        d.alerts.forEach(a => {
+            const p = document.createElement('div'); p.className = `alert-popup ${a.c}`;
+            p.innerHTML = `⚠️ SCADENZA: ${a.t}<br><small>Clicca per calendarizzare</small>`;
+            p.onclick = () => openMaintForm(a.cat);
+            popArea.appendChild(p);
+        });
+        checkScheduledInterventions(v.logs);
+        renderLogs(v.logs);
+        document.getElementById('mainPage').style.display = 'none';
+        document.getElementById('detailPage').style.display = 'block';
+    }
+
+    function checkScheduledInterventions(logs) {
+        const area = document.getElementById('verifyArea'); area.innerHTML = '';
+        if(!logs) return;
+        const oggi = new Date().setHours(0,0,0,0);
+        Object.keys(logs).forEach(lid => {
+            const l = logs[lid];
+            if(l.timestamp <= oggi && !l.completed && (l.cat === 'Revisione' || l.cat === 'Tagliando')) {
+                const box = document.createElement('div'); box.className = 'verify-box';
+                box.innerHTML = `🔔 <strong>VERIFICA:</strong> ${l.cat} del ${l.date} eseguita?<br><br>
+                    <button onclick="confirmAction('${lid}','${l.cat}',true)" style="background:green;color:white;padding:8px 15px;border:none;border-radius:5px;">SÌ</button>
+                    <button onclick="confirmAction('${lid}','${l.cat}',false)" style="background:red;color:white;padding:8px 15px;border:none;border-radius:5px;margin-left:10px;">NO</button>`;
+                area.appendChild(box);
+            }
+        });
+    }
+
+    function confirmAction(lid, cat, ok) {
+        if(ok) {
+            if(cat === 'Tagliando') db.ref(`mezzi_v10_final/${currentId}/kmLast`).set(allFleetData[currentId].kmCurrent);
+            if(cat === 'Revisione') db.ref(`mezzi_v10_final/${currentId}/regDate`).set(new Date().toISOString().split('T')[0]);
+        }
+        db.ref(`mezzi_v10_final/${currentId}/logs/${lid}/completed`).set(true).then(() => location.reload());
+    }
+
+    function renderLogs(logs) {
+        const cont = document.getElementById('logsContainer'); cont.innerHTML = '<h4>Cronologia Interventi (Dal più vecchio)</h4>';
+        if(!logs) return;
+        Object.keys(logs).sort((a,b) => logs[a].timestamp - logs[b].timestamp).forEach(lid => {
+            const l = logs[lid];
+            const div = document.createElement('div'); div.className = `log-entry entry-${l.cat.toLowerCase()}`;
+            div.innerHTML = `<div><strong>${l.date}</strong> - ${l.cat}<br><small>${l.desc}</small></div>
+                <div><button onclick="editLogEntry('${lid}','${l.cat}','${l.date}','${l.desc}')" style="background:none;border:none;">✏️</button>
+                <button onclick="deleteLog(event,'${lid}')" style="background:none;border:none;">🗑️</button></div>`;
+            cont.appendChild(div);
+        });
+    }
+
+    function updateKm() {
+        const n = parseInt(document.getElementById('quickKm').value);
+        if(!n) return alert("Inserisci un numero");
+        db.ref(`mezzi_v10_final/${currentId}/kmCurrent`).set(n).then(() => alert("KM Aggiornati"));
+    }
+
+    function addVehicle() {
+        const c = document.getElementById('center').value;
+        const p = document.getElementById('plate').value.toUpperCase();
+        const m = document.getElementById('model').value;
+        const d = document.getElementById('regDate').value;
+        const kc = document.getElementById('kmCurrent').value;
+        const ki = document.getElementById('kmInterval').value;
+        const mi = document.getElementById('monthInterval').value;
+
+        if(!c || !p || !m || !d || !kc || !ki || !mi) {
+            return alert("ATTENZIONE: Tutti i campi del box di registrazione sono obbligatori!");
+        }
+
+        fleetRef.push({ 
+            center: c, 
+            plate: p, 
+            model: m, 
+            regDate: d, 
+            kmCurrent: parseInt(kc), 
+            kmLast: 0, 
+            kmInterval: parseInt(ki),
+            monthInterval: parseInt(mi),
+            logs: {} 
+        }).then(() => {
+            alert("Mezzo registrato con successo!");
+            location.reload();
+        });
+    }
+
+    function filterFleet() { renderFleet(allFleetData, document.getElementById('searchInput').value); }
+    function openMaintForm(cat) { currentCat = cat; document.getElementById('editLogId').value = ""; document.getElementById('maintTitle').innerText = cat; document.getElementById('maintDate').valueAsDate = new Date(); document.getElementById('maintForm').style.display = 'block'; }
+    function saveLog() {
+        const lid = document.getElementById('editLogId').value;
+        const date = document.getElementById('maintDate').value;
+        const data = { cat: currentCat, desc: document.getElementById('maintDesc').value, date: new Date(date).toLocaleDateString('it-IT'), timestamp: new Date(date).getTime(), completed: false };
+        const path = lid ? `mezzi_v10_final/${currentId}/logs/${lid}` : `mezzi_v10_final/${currentId}/logs/${db.ref().push().key}`;
+        db.ref(path).set(data).then(() => location.reload());
+    }
+    function editLogEntry(lid, cat, dateStr, desc) { currentCat = cat; document.getElementById('editLogId').value = lid; document.getElementById('maintTitle').innerText = cat; document.getElementById('maintDesc').value = desc; document.getElementById('maintForm').style.display = 'block'; }
+    function closeDetails() { document.getElementById('mainPage').style.display = 'block'; document.getElementById('detailPage').style.display = 'none'; }
+    function deleteLog(e, lid) { if(confirm("Eliminare?")) db.ref(`mezzi_v10_final/${currentId}/logs/${lid}`).remove().then(() => location.reload()); }
+    function deleteFullVehicle() { if(confirm("Eliminare tutto?")) db.ref(`mezzi_v10_final/${currentId}`).remove().then(() => closeDetails()); }
+</script>
+</body>
+</html>
